@@ -10,10 +10,6 @@ import Camera from './components/Camera'
 import { Box, Modal } from '@mui/material'
 import { useCarplayStore, useStatusStore } from "./store/store";
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-
-// rm -rf node_modules/.vite; npm run dev
-
 
 const style = {
   position: 'absolute',
@@ -26,6 +22,32 @@ const style = {
   display: "flex"
 };
 
+function StartupClock() {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }));
+    };
+
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="startupClock">
+      <div className="startupClockTime">{time}</div>
+      <div className="startupClockText">Waiting for CarPlay...</div>
+    </div>
+  );
+}
+
 function App() {
   const [receivingVideo, setReceivingVideo] = useState(false)
   const [commandCounter, setCommandCounter] = useState(0)
@@ -33,11 +55,13 @@ function App() {
   const [reverse, setReverse] = useStatusStore(state => [state.reverse, state.setReverse])
   const settings = useCarplayStore((state) => state.settings)
 
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-
   const theme = createTheme({
     palette: {
-      mode: prefersDarkMode ? 'dark': "light",
+      mode: 'dark',
+      background: {
+        default: '#333333',
+        paper: '#333333',
+      },
     }
   });
 
@@ -46,7 +70,6 @@ function App() {
 
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [settings]);
-
 
   const onKeyDown = (event: KeyboardEvent) => {
     if(Object.values(settings!.bindings).includes(event.code)) {
@@ -75,10 +98,10 @@ function App() {
           style={{ height: '100%', touchAction: 'none' }}
           id={'main'}
           className="App"
-
         >
           <Nav receivingVideo={receivingVideo} settings={settings}/>
-          {settings ? <Carplay  receivingVideo={receivingVideo} setReceivingVideo={setReceivingVideo} settings={settings} command={keyCommand} commandCounter={commandCounter}/> : null}
+          {!receivingVideo && <StartupClock />}
+          {settings ? <Carplay receivingVideo={receivingVideo} setReceivingVideo={setReceivingVideo} settings={settings} command={keyCommand} commandCounter={commandCounter}/> : null}
           <Routes>
             <Route path={"/"} element={<Home />} />
             <Route path={"/settings"} element={<Settings settings={settings!}/>} />
