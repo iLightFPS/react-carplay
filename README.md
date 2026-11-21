@@ -4,13 +4,13 @@ A CarPlay app for Raspberry Pi with a Carlinkit CPC200-CCPA adapter. Based on [R
 
 ## CarPlay
 
-![CarPlay tab showing the clock and connection button](docs/screenshots/carplay.jpg)
+![CarPlay tab showing the clock and connection button](docs/screenshots/carplay.png)
 
 The clock stays on screen until video arrives from the phone. If the phone disconnects, the reconnect button comes back. A connection attempt that gets stuck can be retried after 30 seconds.
 
 ## Settings
 
-![Settings tab with display controls](docs/screenshots/settings.jpg)
+![Settings tab with display controls](docs/screenshots/settings.png)
 
 Settings are split into Display, Audio, Connection, and Advanced. Change the resolution, frame rate, microphone, Wi-Fi band, cameras, key bindings, and CAN triggers here.
 
@@ -18,7 +18,7 @@ Saving adapter settings restarts the CarPlay connection without closing the app.
 
 ## Debug console
 
-![Debug console recording app and main-process messages](docs/screenshots/debug.jpg)
+![Debug console with recording switched off](docs/screenshots/debug.png)
 
 Recording is **off by default**. Start it before reproducing a problem, stop it afterward, then export the logs as JSONL. Search and filter by level or source to find what you need.
 
