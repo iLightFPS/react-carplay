@@ -1,0 +1,51 @@
+.connectionScreen {
+  position: fixed;
+  inset: 48px 0 0;
+  z-index: 1;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(18px, 4vh, 40px) clamp(24px, 5vw, 72px);
+  overflow: auto;
+  text-align: left;
+  color: #edf5f3;
+  background: radial-gradient(ellipse at 75% 25%, #223b3c 0, transparent 58%), #101619;
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+}
+.connectionHeader { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.connectionBrand { font-size: clamp(10px, 1.3vw, 14px); letter-spacing: .2em; font-weight: 600; color: #a8b8b7; }
+.connectionBrand > span { color: #83d8bd; margin: 0 10px; }
+.connectionBadge { display: flex; align-items: center; gap: 9px; font-size: 11px; letter-spacing: .12em; color: #c5d5d0; }
+.connectionDot { width: 7px; height: 7px; border-radius: 50%; background: #90ab9f; }
+.isConnecting .connectionDot { background: #96ebcc; animation: connectionPulse 1.5s ease-in-out infinite; }
+.connectionClock { padding: 20px 0; }
+.connectionTime { display: block; font-size: clamp(76px, min(19vw, 29vh), 230px); font-weight: 300; letter-spacing: -.065em; line-height: 1; font-variant-numeric: tabular-nums; }
+.connectionDate { color: #a5b8b4; font-size: clamp(14px, 2vw, 22px); margin-top: 16px; }
+.connectionFooter { display: flex; justify-content: space-between; align-items: center; gap: 24px; border-top: 1px solid #ffffff19; padding-top: 24px; }
+.connectionEyebrow { font-size: 12px; letter-spacing: .05em; color: #94d9c3; }
+.connectionCopy h1 { font-size: clamp(20px, 2.8vw, 34px); font-weight: 400; margin: 9px 0; letter-spacing: -.025em; }
+.connectionCopy p { color: #a4b5b2; font-size: clamp(12px, 1.5vw, 16px); margin: 0; line-height: 1.5; }
+.connectionButton { min-height: 56px; flex-shrink: 0; padding: 16px 24px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid #b0f4db; border-radius: 18px; background: #acebd4; color: #132d25; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+.connectionButton svg { width: 23px; height: 23px; }
+.connectionButton:hover:not(:disabled) { background: #cbf8e8; }
+.connectionButton:active:not(:disabled) { transform: translateY(1px); }
+.connectionButton:focus-visible { outline: 3px solid white; outline-offset: 5px; }
+.connectionButton:disabled { opacity: .65; cursor: wait; }
+.connectionButton:disabled svg { animation: connectionRotate 2s linear infinite; }
+@keyframes connectionPulse { 50% { opacity: .35; } }
+@keyframes connectionRotate { to { transform: rotate(360deg); } }
+@media (max-width: 600px) {
+  .connectionFooter { flex-direction: column; align-items: stretch; gap: 18px; }
+  .connectionScreen { padding: 20px 24px; }
+  .connectionBadge { font-size: 9px; }
+}
+@media (max-height: 420px) {
+  .connectionScreen { padding: 12px 24px; }
+  .connectionClock { padding: 12px 0; }
+  .connectionDate { margin-top: 8px; }
+  .connectionFooter { padding-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connectionScreen * { animation: none !important; }
+}

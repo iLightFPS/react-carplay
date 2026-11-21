@@ -1,0 +1,46 @@
+.debugPage { position: fixed; inset: 48px 0 0; z-index: 2; display: flex; flex-direction: column; color: #e4eeeb; background: #101719; font-family: 'Roboto', 'Segoe UI', sans-serif; text-align: left; }
+.debugHeader { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 36px; background: linear-gradient(110deg, #101719, #1b2e2e); border-bottom: 1px solid #ffffff12; }
+.debugEyebrow { color: #8eafa2; letter-spacing: .16em; font-size: 10px; }
+.debugHeader h1 { font-size: 30px; font-weight: 400; letter-spacing: -.035em; margin: 8px 0 0; }
+.debugHeaderActions { display: flex; align-items: center; gap: 24px; }
+.debugPage button { min-height: 44px; padding: 10px 16px; border: 1px solid #40544c; background: #192a26; border-radius: 10px; color: #c2eddb; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.debugPage button:hover:not(:disabled) { background: #284239; }
+.debugPage button:disabled { opacity: .4; cursor: default; }
+.debugPage button:focus-visible, .debugPage input:focus-visible, .debugPage select:focus-visible, .debugEntries:focus-visible { outline: 2px solid #acebd4; outline-offset: 3px; }
+.debugCapture { color: #a5e3c9; font-size: 10px; letter-spacing: .1em; }
+.debugCapture::before { content: ''; display: inline-block; height: 6px; width: 6px; border-radius: 50%; background: currentColor; margin-right: 8px; }
+.debugCapture.isPaused { color: #edc184; }
+.debugCapture.isStopped { color: #8ba095; }
+.debugPage .debugRecordButton { border-color: #acebd4; background: #acebd4; color: #17382a; }
+.debugPage .debugRecordButton:hover { background: #c7f8e4; }
+.debugToolbar { display: flex; align-items: center; gap: 16px; padding: 18px 36px; border-bottom: 1px solid #ffffff12; }
+.debugSearch { display: flex; align-items: center; gap: 10px; min-width: 140px; flex: 1; border: 1px solid #354740; border-radius: 10px; padding: 0 14px; background: #15201f; }
+.debugSearch > span { font-size: 24px; color: #91aa9f; }
+.debugSearch input { width: 100%; min-width: 0; height: 44px; border: 0; background: transparent; font: inherit; font-size: 13px; color: #e4eeeb; }
+.debugFilter { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #90a89d; }
+.debugFilter select { min-height: 44px; border: 1px solid #354740; border-radius: 10px; padding: 0 12px; background: #15201f; font: inherit; font-size: 13px; color: #dcebe4; color-scheme: dark; }
+.debugTools { display: flex; gap: 8px; }
+.debugTableHeader, .debugRow { display: grid; grid-template-columns: 112px 70px 90px minmax(0, 1fr); gap: 14px; padding: 0 36px; }
+.debugTableHeader { padding-top: 12px; padding-bottom: 12px; color: #829c90; font-size: 10px; letter-spacing: .1em; background: #14201e; border-bottom: 1px solid #ffffff10; }
+.debugEntries { flex: 1; min-height: 0; overflow: auto; scrollbar-color: #40594d transparent; }
+.debugRow { padding-top: 11px; padding-bottom: 11px; border-bottom: 1px solid #ffffff08; font-family: 'Cascadia Code', Consolas, monospace; font-size: 12px; line-height: 1.6; align-items: start; }
+.debugRow:hover { background: #ffffff03; }
+.debugRow time { color: #799487; white-space: nowrap; }
+.debugLevel { color: #96bfac; font-size: 10px; border-radius: 5px; padding: 1px 5px; background: #8ec5a80c; width: fit-content; }
+.debugSource { color: #9eafa8; overflow-wrap: anywhere; }
+.debugRow pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font: inherit; color: #d2e0d8; user-select: text; }
+.debug-warn .debugLevel { background: #eec18414; color: #eec184; }
+.debug-error { background: #ef998208; }
+.debug-error .debugLevel { background: #ef998218; color: #f3a796; }
+.debug-debug .debugLevel { color: #93aabf; background: #93aabf0c; }
+.debugEmpty { padding: 70px 24px; text-align: center; color: #93aa9e; }
+.debugEmpty > span { font: 32px Consolas, monospace; color: #91ceb0; }
+.debugEmpty h2 { font-size: 20px; font-weight: 400; color: #c4d9cc; }
+.debugEmpty p { font-size: 13px; }
+.debugFooter { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid #ffffff12; padding: 16px 36px; font-size: 11px; color: #94ab9e; background: #121e1c; }
+.debugFooter label { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-height: 24px; }
+.debugFooter input { accent-color: #acebd4; width: 18px; height: 18px; }
+.debugSeparator { padding: 0 8px; color: #526e5e; }
+@media (max-width: 900px) { .debugToolbar { flex-wrap: wrap; gap: 10px; padding: 14px 24px; } .debugSearch { flex-basis: 100%; } .debugTools { margin-left: auto; } .debugHeader { padding: 20px 24px; } .debugHeaderActions { gap: 12px; } .debugTableHeader, .debugRow { padding-left: 24px; padding-right: 24px; grid-template-columns: 100px 55px 75px minmax(0, 1fr); gap: 8px; } .debugFooter { padding: 12px 24px; } }
+@media (max-width: 540px) { .debugHeader h1 { font-size: 24px; } .debugCapture { display: none; } .debugToolbar { padding: 12px; } .debugFilter > span { display: none; } .debugFilter select { max-width: 110px; } .debugTools button { padding: 8px; font-size: 11px; } .debugTableHeader, .debugRow { padding-left: 12px; padding-right: 12px; grid-template-columns: 84px 44px minmax(0, 1fr); gap: 6px; font-size: 11px; } .debugRow .debugSource { grid-column: 3; } .debugRow pre { grid-column: 1 / -1; } .debugTableHeader > span:nth-child(3) { display: none; } .debugFooter { padding: 10px 12px; align-items: start; font-size: 10px; } }
+@media (max-height: 500px) { .debugHeader { padding-top: 12px; padding-bottom: 12px; } .debugHeader h1 { font-size: 23px; margin-top: 4px; } .debugToolbar { padding-top: 8px; padding-bottom: 8px; } .debugFooter { padding-top: 8px; padding-bottom: 8px; } }

@@ -1,57 +1,45 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-#Set path to copy appimage and autolaunch location
-path="/home/$USER/Desktop/Carplay.AppImage"
-
-#create udev rule thats specific to carlinkit device
-echo "Creating udev rules"
-
-FILE=/etc/udev/rules.d/52-nodecarplay.rules
-echo "SUBSYSTEM==\"usb\", ATTR{idVendor}==\"1314\", ATTR{idProduct}==\"152*\", MODE=\"0660\", GROUP=\"plugdev\"" | sudo tee $FILE
-
-if [[ $? -eq 0 ]]; then
-	echo -e Permissions created'\n'
-    else
-	echo -e Unable to create permissions'\n'
+if [[ "$(uname -s)" != Linux ]]; then
+  echo "Run this installer on the Raspberry Pi / Linux target." >&2
+  exit 1
 fi
-echo "checking for fuse packages"
-
-REQUIRED_PKG="fuse"
-PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
-echo Checking for $REQUIRED_PKG: $PKG_OK
-if [ "" = "$PKG_OK" ]; then
-  echo "No $REQUIRED_PKG. Setting up $REQUIRED_PKG."
-  sudo apt-get --yes install $REQUIRED_PKG
+if [[ "$EUID" -eq 0 ]]; then
+  echo "Run as your normal desktop user; sudo will be requested for USB permissions." >&2
+  exit 1
+fi
+if [[ $# -ne 1 || ! -f "$1" ]]; then
+  echo "Usage: ./setup-pi.sh /absolute/path/to/your-fork.AppImage" >&2
+  echo "Build your fork first. This script never downloads a stock upstream release." >&2
+  exit 1
 fi
 
-REQUIRED_PKG="libfuse2"
-PKG_OK=$(dpkg-query -W --showformat='${Status}\n' $REQUIRED_PKG|grep "install ok installed")
-echo Checking for $REQUIRED_PKG: $PKG_OK
-if [ "" = "$PKG_OK" ]; then
-  echo "No $REQUIRED_PKG. Setting up $REQUIRED_PKG."
-  sudo apt-get --yes install $REQUIRED_PKG
-fi
-
-echo "Downloading AppImage"
-
-if getconf LONG_BIT | grep -q '64'; then
-	echo "64 Bit Detected"
- 	curl -L https://github.com/rhysmorgan134/react-carplay/releases/download/v4.0.5/react-carplay-4.0.5-arm64.AppImage --output /home/$USER/Desktop/Carplay.AppImage
+source_image="$(realpath -- "$1")"
+target_dir="$HOME/.local/bin"
+target_image="$target_dir/Carplay.AppImage"
+autostart_dir="$HOME/.config/autostart"
+mkdir -p -- "$target_dir" "$autostart_dir"
+if [[ "$source_image" != "$target_image" ]]; then
+  install -m 755 -- "$source_image" "$target_image"
 else
-	echo "32 Bit OS not supported"
- 	exit 1
+  chmod +x -- "$target_image"
 fi
 
-echo "Download Done"
+if ! getent group plugdev >/dev/null; then sudo groupadd --system plugdev; fi
+sudo usermod -aG plugdev "$(id -un)"
+printf '%s\n' 'SUBSYSTEM=="usb", ATTR{idVendor}=="1314", ATTR{idProduct}=="152*", MODE="0660", GROUP="plugdev"' |
+  sudo tee /etc/udev/rules.d/52-nodecarplay.rules >/dev/null
+sudo udevadm control --reload-rules
 
-echo "Creating executable"
-sudo chmod +x /home/$USER/Desktop/Carplay.AppImage
+cat > "$autostart_dir/carplay.desktop" <<EOF
+[Desktop Entry]
+Name=CarPlay
+Type=Application
+Exec="$target_image"
+Terminal=false
+EOF
 
-echo "Creating Autostart File"
-
-sudo bash -c "echo '[Desktop Entry]
-Name=File Manager
-Exec=/home/$USER/Desktop/Carplay.AppImage
-Type=Application' > /etc/xdg/autostart/carplay.desktop"
-
-echo "All Done"
+echo "Installed your AppImage to $target_image"
+echo "Reconnect the adapter. Sign out/in if plugdev membership was newly added."
+echo "Install the distribution's AppImage/FUSE dependency if the AppImage needs it."

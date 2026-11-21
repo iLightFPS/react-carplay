@@ -9,8 +9,13 @@
   "compilerOptions": {
     "composite": false,
     "jsx": "react-jsx",
-    "target": "es5",
-    "lib": ["dom", "dom.iterable", "esnext", "WebWorker"],
+    "target": "ES2020",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext",
+      "WebWorker"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -28,6 +33,9 @@
       "@renderer/*": [
         "src/renderer/src/*"
       ]
-    }
+    },
+    "types": [
+      "@webgpu/types"
+    ]
   }
 }

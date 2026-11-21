@@ -1,3 +1,4 @@
+import type { ExtraConfig } from '../../../main/Globals'
 import { useCallback, useEffect, useState } from 'react'
 import {
   AudioCommand,
@@ -15,7 +16,7 @@ const defaultNavVolume = 0.5
 
 const useCarplayAudio = (
   worker: CarPlayWorker,
-  microphonePort: MessagePort,
+  settings: ExtraConfig,
 ) => {
   const [mic, setMic] = useState<WebMicrophone | null>(null)
   const [audioPlayers] = useState(new Map<AudioPlayerKey, PcmPlayer>())
@@ -34,7 +35,7 @@ const useCarplayAudio = (
       worker.postMessage({
         type: 'audioPlayer',
         payload: {
-          sab: player.sab,
+          sab: player.getRawBuffer(),
           decodeType,
           audioType,
         },
@@ -67,26 +68,34 @@ const useCarplayAudio = (
     [getAudioPlayer],
   )
 
-  // audio init
+  // A microphone transfers its port only once. Recreate the port pair when its source changes.
   useEffect(() => {
+    if (settings.micType !== 'os') return
+    let cancelled = false
+    let stream: MediaStream | undefined
+    let microphone: WebMicrophone | undefined
+    const channel = new MessageChannel()
     const initMic = async () => {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        })
-        const mic = new WebMicrophone(mediaStream, microphonePort)
-        setMic(mic)
-      } catch (err) {
-        console.error('Failed to init microphone', err)
-      }
+        stream = await navigator.mediaDevices.getUserMedia({ audio: settings.microphone ? { deviceId: { exact: settings.microphone } } : true })
+        if (cancelled) { stream.getTracks().forEach(track => track.stop()); return }
+        worker.postMessage({ type: 'microphonePort', payload: channel.port1 }, [channel.port1])
+        microphone = new WebMicrophone(stream, channel.port2)
+        setMic(microphone)
+      } catch (error) { console.error('Failed to init microphone', error) }
     }
-
-    initMic()
-
+    void initMic()
     return () => {
-      audioPlayers.forEach(p => p.stop())
+      cancelled = true
+      microphone?.destroy()
+      channel.port1.close()
+      channel.port2.close()
+      stream?.getTracks().forEach(track => track.stop())
+      setMic(null)
     }
-  }, [audioPlayers, worker, microphonePort])
+  }, [worker, settings.micType, settings.microphone])
+
+  useEffect(() => () => { audioPlayers.forEach(player => { void player.stop() }) }, [audioPlayers])
 
   const startRecording = useCallback(() => {
     mic?.start()

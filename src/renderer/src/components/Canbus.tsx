@@ -1,8 +1,7 @@
 import { CanConfig, CanMessage, ExtraConfig } from "../../../main/Globals";
-import { Box, Button, Modal, Paper, styled, TextField, Typography } from '@mui/material'
+import { Button, TextField, Typography } from '@mui/material'
 import Grid from '@mui/material/Unstable_Grid2'
 import React, { useEffect, useState } from "react";
-import { InfinitySpin } from "react-loader-spinner";
 
 interface KeyBindingsProps {
   settings: ExtraConfig,
@@ -10,23 +9,15 @@ interface KeyBindingsProps {
   setSettings: (key: any, value: any) => void
 }
 
-const Item = styled(Paper)(({ theme }) => ({
-  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
-  ...theme.typography.body2,
-  padding: theme.spacing(1),
-  textAlign: 'center',
-  flexDirection: 'row',
-  color: theme.palette.text.secondary,
-}));
 
 export function Canbus({ settings, setOpenCan, setSettings }: KeyBindingsProps) {
   const [reverse, setReverse] = useState<CanMessage>({canId: 0x00, mask: 0x00, byte: 0})
-  const [lights, setLights] = useState<CanMessage>({canId: 0x00, mask: 0x00, byte: 0})
+  const [frontCamera, setFrontCamera] = useState<CanMessage>({canId: 0x00, mask: 0x00, byte: 0})
 
   const handleSave = () => {
     const canConfig: CanConfig = {
       reverse,
-      lights
+      frontCamera
     }
     setSettings('canbus', true)
     setSettings('canConfig', canConfig)
@@ -38,9 +29,8 @@ export function Canbus({ settings, setOpenCan, setSettings }: KeyBindingsProps) 
     if(settings.canConfig?.reverse) {
       setReverse(settings.canConfig.reverse)
     }
-    if(settings.canConfig?.lights) {
-      setLights(settings.canConfig.lights)
-    }
+    const front = settings.canConfig?.frontCamera ?? settings.canConfig?.lights
+    if(front) setFrontCamera(front)
   }, [settings]);
 
   return (
@@ -82,16 +72,16 @@ export function Canbus({ settings, setOpenCan, setSettings }: KeyBindingsProps) 
         />
       </Grid>
       <Grid xs={12}>
-        <Typography>LIGHTS</Typography>
+        <Typography>FRONT CAMERA</Typography>
       </Grid>
       <Grid xs={4}>
         <TextField
           id="outlined-controlled"
           label="CAN ID"
-          value={lights.canId}
+          value={frontCamera.canId}
           type={'number'}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-            setLights({...lights, canId: parseInt(event.target.value)})
+            setFrontCamera({...frontCamera, canId: parseInt(event.target.value)})
           }}
         />
       </Grid>
@@ -99,10 +89,10 @@ export function Canbus({ settings, setOpenCan, setSettings }: KeyBindingsProps) 
         <TextField
           id="outlined-controlled"
           label="MASK"
-          value={lights.mask}
+          value={frontCamera.mask}
           type={'number'}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-            setLights({...lights, mask: parseInt(event.target.value)})
+            setFrontCamera({...frontCamera, mask: parseInt(event.target.value)})
           }}
         />
       </Grid>
@@ -110,10 +100,10 @@ export function Canbus({ settings, setOpenCan, setSettings }: KeyBindingsProps) 
         <TextField
           id="outlined-controlled"
           label="BYTE"
-          value={lights.byte}
+          value={frontCamera.byte}
           type={'number'}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-            setLights({...lights, byte: parseInt(event.target.value)})
+            setFrontCamera({...frontCamera, byte: parseInt(event.target.value)})
           }}
         />
       </Grid>

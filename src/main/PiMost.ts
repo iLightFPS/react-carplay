@@ -1,25 +1,15 @@
-import { SocketMost, SocketMostClient } from 'socketmost'
-import { Stream } from "socketmost/dist/modules/Messages";
-import { MessageNames, Socket } from "./Socket";
+import type { Stream } from './Globals'
+import { MessageNames, Socket } from './Socket'
 
 export class PiMost {
-  socketMost: SocketMost
-  socketMostClient: SocketMostClient
-  socket: Socket
+  socketMost: unknown
+  socketMostClient: { stream: (stream: Stream) => void }
   constructor(socket: Socket) {
-    console.log("creating client in PiMost")
+    if (process.platform !== 'linux') throw Error('PiMost requires Linux')
+    const { SocketMost, SocketMostClient } = require('socketmost')
     this.socketMost = new SocketMost()
     this.socketMostClient = new SocketMostClient()
-    this.socket = socket
-
-    this.socket.on(MessageNames.Stream, (stream) => {
-      this.stream(stream)
-    })
+    socket.on(MessageNames.Stream, (stream: Stream) => this.stream(stream))
   }
-
-  stream(stream: Stream) {
-    this.socketMostClient.stream(stream)
-  }
+  stream(stream: Stream) { this.socketMostClient.stream(stream) }
 }
-
-

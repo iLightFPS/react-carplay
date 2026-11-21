@@ -1,7 +1,7 @@
 import { IpcRendererEvent, contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { ExtraConfig} from "../main/Globals";
-import { Stream } from "socketmost/dist/modules/Messages";
+import type { Stream } from '../main/Globals'
 
 type ApiCallback = (event: IpcRendererEvent, ...args: any[]) => void
 
@@ -22,7 +22,7 @@ const api: Api = {
   reverse: (callback: ApiCallback) => ipcRenderer.on('reverse', callback),
   getSettings: () => ipcRenderer.send('getSettings'),
   saveSettings: (settings: ExtraConfig) => ipcRenderer.send('saveSettings', settings),
-  // stream: (stream: Stream) => ipcRenderer.send('startStream', stream),
+  stream: (stream: Stream) => ipcRenderer.send('startStream', stream),
   quit: () => ipcRenderer.send('quit')
 }
 

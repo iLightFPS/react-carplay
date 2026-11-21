@@ -1,7 +1,8 @@
+import { createServer } from 'http'
 import { ExtraConfig } from "./Globals";
 import { Server } from 'socket.io'
 import { EventEmitter } from 'events'
-import { Stream } from "socketmost/dist/modules/Messages";
+import type { Stream } from './Globals'
 
 export enum MessageNames {
   Connection = 'connection',
@@ -11,6 +12,8 @@ export enum MessageNames {
 }
 
 export class Socket extends EventEmitter {
+  private reverse = false
+  private frontCamera = false
   config: ExtraConfig
   io: Server
   saveSettings: (settings: ExtraConfig) => void
@@ -18,7 +21,8 @@ export class Socket extends EventEmitter {
     super()
     this.config = config
     this.saveSettings = saveSettings
-    this.io = new Server({
+    const http = createServer()
+    this.io = new Server(http, {
       cors: {
         origin: '*'
       }
@@ -26,13 +30,20 @@ export class Socket extends EventEmitter {
 
     this.io.on(MessageNames.Connection, (socket) => {
       this.sendSettings()
+      socket.emit('reverse', this.reverse)
+      socket.emit('frontCamera', this.frontCamera)
 
       socket.on(MessageNames.GetSettings, () => {
         this.sendSettings()
       })
 
-      socket.on(MessageNames.SaveSettings, (settings: ExtraConfig) => {
-        this.saveSettings(settings)
+      socket.on(MessageNames.SaveSettings, (settings: ExtraConfig, acknowledge?: (result: { ok: boolean; error?: string }) => void) => {
+        try { this.saveSettings(settings); acknowledge?.({ ok: true }) } catch (error) {
+          console.error('Settings save failed', error)
+          const message = error instanceof Error ? error.message : 'Unable to save settings'
+          socket.emit('settingsError', message)
+          acknowledge?.({ ok: false, error: message })
+        }
       })
 
       socket.on(MessageNames.Stream, (stream: Stream) => {
@@ -40,7 +51,7 @@ export class Socket extends EventEmitter {
       })
     })
 
-    this.io.listen(4000)
+    http.listen(4000, '127.0.0.1')
   }
 
   sendSettings() {
@@ -48,10 +59,12 @@ export class Socket extends EventEmitter {
   }
 
   sendReverse(reverse: boolean) {
+    this.reverse = reverse
     this.io.emit('reverse', reverse)
   }
 
-  sendLights(lights: boolean) {
-    this.io.emit('lights', lights)
+  sendFrontCamera(active: boolean) {
+    this.frontCamera = active
+    this.io.emit('frontCamera', active)
   }
 }

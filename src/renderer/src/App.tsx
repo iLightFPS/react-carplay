@@ -1,3 +1,4 @@
+import { cameraMode } from '../../shared/canSignals'
 import { useEffect, useState } from "react";
 import { HashRouter as Router, Route, Routes } from "react-router-dom";
 import Settings from "./components/Settings";
@@ -10,10 +11,6 @@ import Camera from './components/Camera'
 import { Box, Modal } from '@mui/material'
 import { useCarplayStore, useStatusStore } from "./store/store";
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-
-// rm -rf node_modules/.vite; npm run dev
-
 
 const style = {
   position: 'absolute',
@@ -30,14 +27,20 @@ function App() {
   const [receivingVideo, setReceivingVideo] = useState(false)
   const [commandCounter, setCommandCounter] = useState(0)
   const [keyCommand, setKeyCommand] = useState('')
-  const [reverse, setReverse] = useStatusStore(state => [state.reverse, state.setReverse])
+  const reverse = useStatusStore(state => state.reverse)
+  const frontCamera = useStatusStore(state => state.frontCamera)
+  const cameraView = cameraMode(reverse, frontCamera)
+  const [dismissedCamera, setDismissedCamera] = useState<string | null>(null)
+  useEffect(() => setDismissedCamera(null), [cameraView])
   const settings = useCarplayStore((state) => state.settings)
-
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
 
   const theme = createTheme({
     palette: {
-      mode: prefersDarkMode ? 'dark': "light",
+      mode: 'dark',
+      background: {
+        default: '#333333',
+        paper: '#333333',
+      },
     }
   });
 
@@ -47,9 +50,8 @@ function App() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [settings]);
 
-
   const onKeyDown = (event: KeyboardEvent) => {
-    if(Object.values(settings!.bindings).includes(event.code)) {
+    if(settings && Object.values(settings.bindings).includes(event.code)) {
       let action = Object.keys(settings!.bindings).find(key =>
         settings!.bindings[key] === event.code
       )
@@ -75,10 +77,9 @@ function App() {
           style={{ height: '100%', touchAction: 'none' }}
           id={'main'}
           className="App"
-
         >
           <Nav receivingVideo={receivingVideo} settings={settings}/>
-          {settings ? <Carplay  receivingVideo={receivingVideo} setReceivingVideo={setReceivingVideo} settings={settings} command={keyCommand} commandCounter={commandCounter}/> : null}
+          {settings ? <Carplay receivingVideo={receivingVideo} setReceivingVideo={setReceivingVideo} settings={settings} command={keyCommand} commandCounter={commandCounter}/> : null}
           <Routes>
             <Route path={"/"} element={<Home />} />
             <Route path={"/settings"} element={<Settings settings={settings!}/>} />
@@ -86,11 +87,11 @@ function App() {
             <Route path={"/camera"} element={<Camera settings={settings!}/>} />
           </Routes>
           <Modal
-            open={reverse}
-            onClick={()=> setReverse(false)}
+            open={!!settings && cameraView !== null && dismissedCamera !== cameraView}
+            onClose={() => setDismissedCamera(cameraView)}
           >
             <Box sx={style}>
-              <Camera settings={settings}/>
+              <Camera settings={settings} mode={cameraView ?? 'reverse'} onClose={() => setDismissedCamera(cameraView)}/>
             </Box>
           </Modal>
         </div>

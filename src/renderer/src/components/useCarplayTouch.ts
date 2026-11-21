@@ -1,44 +1,32 @@
-import { useState, useCallback } from 'react'
+import { useRef, useCallback } from 'react'
 import { TouchAction } from 'node-carplay/web'
-import { CarPlayWorker } from './worker/types'
+import type { PointerEventHandler } from 'react'
+import type { CarPlayWorker } from './worker/types'
+import { videoTouchPosition } from '../../../shared/videoTouch'
 
-export const useCarplayTouch = (
-  worker: CarPlayWorker,
-  width: number,
-  height: number,
-) => {
-  const [pointerdown, setPointerDown] = useState(false)
-
-  const sendTouchEvent: React.PointerEventHandler<HTMLDivElement> = useCallback(
-    e => {
-      let action = TouchAction.Up
-      if (e.type === 'pointerdown') {
-        action = TouchAction.Down
-        setPointerDown(true)
-      } else if (pointerdown) {
-        switch (e.type) {
-          case 'pointermove':
-            action = TouchAction.Move
-            break
-          case 'pointerup':
-          case 'pointercancel':
-          case 'pointerout':
-            setPointerDown(false)
-            action = TouchAction.Up
-            break
-        }
-      } else {
-        return
+export const useCarplayTouch = (worker: CarPlayWorker) => {
+  const pointer = useRef<number | null>(null)
+  const sendTouchEvent: PointerEventHandler<HTMLDivElement> = useCallback(event => {
+    const canvas = event.currentTarget.querySelector('canvas')
+    if (!canvas) return
+    const position = videoTouchPosition(canvas.getBoundingClientRect(), canvas.width, canvas.height, event.clientX, event.clientY)
+    if (!position) return
+    let action: TouchAction
+    if (event.type === 'pointerdown') {
+      if (!position.inside || pointer.current !== null) return
+      pointer.current = event.pointerId
+      event.currentTarget.setPointerCapture(event.pointerId)
+      action = TouchAction.Down
+    } else {
+      if (pointer.current !== event.pointerId) return
+      if (event.type === 'pointermove') action = TouchAction.Move
+      else {
+        pointer.current = null
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        action = TouchAction.Up
       }
-
-      const { offsetX: x, offsetY: y } = e.nativeEvent
-      worker.postMessage({
-        type: 'touch',
-        payload: { x: x / width, y: y / height, action },
-      })
-    },
-    [pointerdown, worker, width, height],
-  )
-
+    }
+    worker.postMessage({ type: 'touch', payload: { x: position.x, y: position.y, action } })
+  }, [worker])
   return sendTouchEvent
 }

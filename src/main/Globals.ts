@@ -1,4 +1,4 @@
-import { Stream } from "socketmost/dist/modules/Messages";
+export interface Stream { fBlockID: number; instanceID: number; sinkNr: number; sourceAddrHigh: number; sourceAddrLow: number }
 import { DongleConfig } from 'node-carplay/node'
 
 export type Most = {
@@ -8,6 +8,7 @@ export type Most = {
 export type ExtraConfig = DongleConfig & {
   kiosk: boolean,
   camera: string,
+  frontCamera?: string,
   microphone: string,
   piMost: boolean,
   canbus: boolean,
@@ -37,5 +38,7 @@ export interface CanMessage {
 
 export interface CanConfig {
   reverse?: CanMessage,
+  frontCamera?: CanMessage
+  /** Legacy name retained for saved configurations. */
   lights?: CanMessage
 }

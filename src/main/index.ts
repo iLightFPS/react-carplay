@@ -1,3 +1,4 @@
+import './debugConsole'
 import { app, shell, BrowserWindow, session, systemPreferences, IpcMainEvent, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -5,8 +6,8 @@ import { DEFAULT_CONFIG } from 'node-carplay/node'
 import { Socket } from './Socket'
 import * as fs from 'fs';
 
-// comment below line to allow running on non linux devices
-import {Canbus} from "./Canbus"
+import { Canbus } from './Canbus'
+import { normaliseSettings, validateSettings } from '../shared/settings'
 
 import { ExtraConfig, KeyBindings } from "./Globals";
 // import CarplayNode, {DEFAULT_CONFIG, CarplayMessage} from "node-carplay/node";
@@ -15,7 +16,7 @@ let mainWindow: BrowserWindow
 const appPath: string = app.getPath('userData')
 const configPath: string = appPath + '/config.json'
 console.log(configPath)
-let config: null | ExtraConfig
+let config: ExtraConfig
 
 const DEFAULT_BINDINGS: KeyBindings = {
   left: 'ArrowLeft',
@@ -34,6 +35,7 @@ const EXTRA_CONFIG: ExtraConfig = {
   ...DEFAULT_CONFIG,
   kiosk: true,
   camera: '',
+  frontCamera: '',
   microphone: '',
   piMost: false,
   canbus: false,
@@ -42,42 +44,35 @@ const EXTRA_CONFIG: ExtraConfig = {
   canConfig: {}
 }
 
-// comment below line to allow running on non linux devices
-let canbus: null | Canbus
+let canbus: Canbus | null = null
+let socket: Socket
 
-let socket: null | Socket
+function configureCan() {
+  try { canbus?.stop() } catch (error) { console.error('Unable to stop CAN channel cleanly', error) }
+  canbus = null
+  socket.sendReverse(false)
+  socket.sendFrontCamera(false)
+  if (!config.canbus) return
+  if (process.platform !== 'linux') {
+    console.warn('CAN integration requires Linux; UI development remains available.')
+    return
+  }
+  try { canbus = new Canbus('can0', socket, config.canConfig) }
+  catch (error) { console.error('Unable to start CAN integration on can0', error) }
+}
 
-fs.exists(configPath, (exists) => {
-    if(exists) {
-      config = JSON.parse(fs.readFileSync(configPath).toString())
-      let configKeys = JSON.stringify(Object.keys({...config}).sort())
-      let defaultKeys =  JSON.stringify(Object.keys({...EXTRA_CONFIG}).sort())
-      if(configKeys !== defaultKeys) {
-        console.log("config updating")
-        config = {...EXTRA_CONFIG, ...config}
-        console.log("new config", config)
-        fs.writeFileSync(configPath, JSON.stringify(config))
-      }
-      console.log("config read")
-    } else {
-      fs.writeFileSync(configPath, JSON.stringify(EXTRA_CONFIG))
-      config = JSON.parse(fs.readFileSync(configPath).toString())
-      console.log("config created and read")
-    }
-    socket = new Socket(config!, saveSettings)
-    // comment below if statement to allow running on non linux devices
-    if(config!.canbus) {
-      console.log("Configuring can", config!.canConfig)
-      canbus = new Canbus('can0',  socket, config!.canConfig)
-      canbus.on('lights', (data) => {
-        console.log('lights', data)
-      })
-      canbus.on('reverse', (data) => {
-        mainWindow?.webContents?.send('reverse', data)
-      })
-    }
-
-})
+try {
+  const saved = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {}
+  config = normaliseSettings(EXTRA_CONFIG, saved)
+  validateSettings(config)
+} catch (error) {
+  console.error('Unable to read settings; using defaults. Original file preserved.', error)
+  config = normaliseSettings(EXTRA_CONFIG, {})
+}
+if (!fs.existsSync(configPath)) fs.writeFileSync(configPath, JSON.stringify(config))
+socket = new Socket(config, saveSettings)
+configureCan()
+app.on('before-quit', () => { try { canbus?.stop() } catch (error) { console.error(error) }; canbus = null })
 
 const handleSettingsReq = (_: IpcMainEvent ) => {
   console.log("settings request")
@@ -160,7 +155,9 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-  systemPreferences.askForMediaAccess("microphone")
+  if (process.platform === 'darwin') {
+    void systemPreferences.askForMediaAccess("microphone")
+  }
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     details.responseHeaders!['Cross-Origin-Opener-Policy'] = ['same-origin'];
     details.responseHeaders!['Cross-Origin-Embedder-Policy'] = ['require-corp'];
@@ -198,7 +195,9 @@ app.whenReady().then(() => {
 
   ipcMain.on('getSettings', handleSettingsReq)
 
-  ipcMain.on('saveSettings', saveSettings)
+  ipcMain.on('saveSettings', (event, settings: ExtraConfig) => {
+    try { saveSettings(settings) } catch (error) { event.sender.send('settingsError', String(error)) }
+  })
 
   // ipcMain.on('startStream', startMostStream)
 
@@ -220,11 +219,19 @@ app.whenReady().then(() => {
   })
 })
 
-const saveSettings = (settings: ExtraConfig) => {
-  console.log("saving settings", settings)
-  fs.writeFileSync(configPath, JSON.stringify(settings))
-  app.relaunch()
-  app.exit()
+function saveSettings(settings: ExtraConfig) {
+  const next = normaliseSettings(EXTRA_CONFIG, settings)
+  validateSettings(next)
+  // Persist first. Do not announce success or restart hardware when writing fails.
+  const temporary = configPath + '.tmp'
+  fs.writeFileSync(temporary, JSON.stringify(next, null, 2))
+  fs.renameSync(temporary, configPath)
+  config = next
+  socket.config = config
+  socket.sendSettings()
+  configureCan()
+  mainWindow?.setKiosk(config.kiosk)
+  console.info('Settings saved; reconnect CarPlay to apply adapter changes.')
 }
 
 // const startMostStream = (_: IpcMainEvent, most: Stream) => {

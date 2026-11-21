@@ -1,72 +1,59 @@
-// import {Message} from "*can.node";
-import * as can from "socketcan";
-import EventEmitter from 'events'
-import { CanConfig } from "./Globals";
-import { Socket } from "./Socket";
+import { EventEmitter } from 'events'
+import type { CanConfig } from './Globals'
+import { decodeCanSignal, validMapping, type CanFrame } from '../shared/canSignals'
 
-type CanMask = {
-  id: number,
-  mask: number,
-  invert: boolean
+interface Channel extends EventEmitter {
+  setRxFilters(filters: { id: number; mask: number; invert: boolean }[]): void
+  start(): void
+  stop(): void
 }
+interface CameraSignals { sendReverse: (active: boolean) => void; sendFrontCamera: (active: boolean) => void }
+type ChannelFactory = (name: string) => Channel
 
+export class Canbus {
+  private channel: Channel
+  private timer: ReturnType<typeof setInterval>
+  private states = { reverse: false, frontCamera: false }
+  private seen = { reverse: 0, frontCamera: 0 }
 
-export class Canbus extends EventEmitter {
-  channel: can.channel
-  canChannel: string
-  subscriptions: CanConfig
-  masks: CanMask[]
-  reverse: boolean
-  lights: boolean
-  socket: Socket
-  constructor(canChannel: string, socket: Socket, subscriptions: CanConfig = {}) {
-    super();
-    this.canChannel = canChannel
-    this.subscriptions = subscriptions
-    this.channel = can.createRawChannel(this.canChannel)
-    this.masks = []
-    this.reverse = false
-    this.lights = false
-    this.socket = socket
-    Object.keys(this.subscriptions).forEach((sub) => {
-      this.masks.push({id: this.subscriptions[sub].canId, mask: this.subscriptions[sub].canId, invert: false})
-    })
-    console.log(this.masks)
-    this.channel.setRxFilters(this.masks)
-
-    this.channel.addListener("onMessage", (msg) => {
-      let data
-      switch (msg.id) {
-        case this.subscriptions?.reverse?.canId:
-          data = msg.data[this.subscriptions!.reverse!.byte] & this.subscriptions!.reverse!.mask
-          console.log("reverse", data)
-          let tempReverse
-          if (data) {
-            tempReverse = true
-          } else {
-            tempReverse = false
-          }
-          if(tempReverse !== this.reverse) {
-            this.socket.sendReverse(tempReverse)
-            this.reverse = tempReverse
-          }
-          break
-        case this.subscriptions?.lights?.canId:
-          let tempLights = this.lights
-          data = msg.data[this.subscriptions!.reverse!.byte] & this.subscriptions!.reverse!.mask
-          if (data) {
-            tempLights = true
-          } else {
-            tempLights = false
-          }
-          if(tempLights !== this.lights) {
-            this.socket.sendLights(this.lights)
-          }
-          break
+  constructor(name: string, private socket: CameraSignals, subscriptions: CanConfig = {}, factory?: ChannelFactory) {
+    // socketcan is optional on Windows. Do not resolve it until a Linux CAN session is requested.
+    const createChannel: ChannelFactory = factory ?? require('socketcan').createRawChannel
+    this.channel = createChannel(name)
+    const mappings = { reverse: subscriptions.reverse, frontCamera: subscriptions.frontCamera ?? subscriptions.lights }
+    const filters = Object.values(mappings).filter(validMapping).map(mapping => ({
+      id: mapping.canId, mask: mapping.canId > 0x7ff ? 0x1fffffff : 0x7ff, invert: false
+    }))
+    this.channel.setRxFilters(filters)
+    this.channel.on('onMessage', (frame: CanFrame) => {
+      for (const key of ['reverse', 'frontCamera'] as const) {
+        const active = decodeCanSignal(frame, mappings[key])
+        if (active !== null) { this.seen[key] = Date.now(); this.update(key, active) }
       }
     })
+    this.channel.on('error', error => { console.error('CAN channel error', error); this.reset() })
+    try { this.channel.start() }
+    catch (error) { this.channel.removeAllListeners(); try { this.channel.stop() } catch {} throw error }
+    // Drop stale camera triggers if the bus/adapter stops delivering the mapped signal.
+    this.timer = setInterval(() => {
+      for (const key of ['reverse', 'frontCamera'] as const) {
+        if (this.states[key] && Date.now() - this.seen[key] > 1500) this.update(key, false)
+      }
+    }, 250)
+    this.timer.unref?.()
+  }
 
-    this.channel.start()
-
+  private update(key: 'reverse' | 'frontCamera', active: boolean) {
+    if (this.states[key] === active) return
+    this.states[key] = active
+    if (key === 'reverse') this.socket.sendReverse(active)
+    else this.socket.sendFrontCamera(active)
+    console.info('CAN camera trigger', key, active)
+  }
+  private reset() { this.update('reverse', false); this.update('frontCamera', false) }
+  stop() {
+    clearInterval(this.timer)
+    this.channel.removeAllListeners()
+    try { this.channel.stop() } finally { this.reset() }
   }
 }

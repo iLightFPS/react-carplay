@@ -1,4 +1,4 @@
-import { Stream } from 'socketmost/dist/modules/Messages'
+import type { Stream } from '../../../main/Globals'
 import Grid from '@mui/material/Unstable_Grid2'
 import React, { useState } from 'react'
 import { Button, TextField } from '@mui/material'
@@ -24,7 +24,7 @@ function MostStream({ setSettings, setOpenStream }: SettingsProps) {
   const handleSave = () => {
     let parsedNumeric = {}
     for(const [k, v] of Object.entries(stream)) {
-      parsedNumeric[k] = parseInt(v)
+      parsedNumeric[k] = Number(v)
     }
     setSettings('most', {stream: {...parsedNumeric}})
     setSettings('piMost', true)
@@ -40,8 +40,8 @@ function MostStream({ setSettings, setOpenStream }: SettingsProps) {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             updateStream('fBlockID', event.target.value)
           }}
-          error={parseInt(stream.fBlockID) !== null ? false : true}
-          helperText={parseInt(stream.fBlockID) !== null ? '' : 'Format must be in hex'}
+          error={Number(stream.fBlockID) !== null ? false : true}
+          helperText={Number(stream.fBlockID) !== null ? '' : 'Format must be in hex'}
         />
       </Grid>
       <Grid xs={4}>
@@ -51,8 +51,8 @@ function MostStream({ setSettings, setOpenStream }: SettingsProps) {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             updateStream('instanceID', event.target.value)
           }}
-          error={parseInt(stream.instanceID) !== null ? false : true}
-          helperText={parseInt(stream.instanceID) !== null ? '' : 'Format must be in hex'}
+          error={Number(stream.instanceID) !== null ? false : true}
+          helperText={Number(stream.instanceID) !== null ? '' : 'Format must be in hex'}
         />
       </Grid>
       <Grid xs={4}>
@@ -62,8 +62,8 @@ function MostStream({ setSettings, setOpenStream }: SettingsProps) {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             updateStream('sinkNr', event.target.value)
           }}
-          error={parseInt(stream.sinkNr) !== null ? false : true}
-          helperText={parseInt(stream.sinkNr) !== null ? '' : 'Format must be in hex'}
+          error={Number(stream.sinkNr) !== null ? false : true}
+          helperText={Number(stream.sinkNr) !== null ? '' : 'Format must be in hex'}
         />
       </Grid>
       <Grid xs={6}>
@@ -73,8 +73,8 @@ function MostStream({ setSettings, setOpenStream }: SettingsProps) {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             updateStream('sourceAddrHigh', event.target.value)
           }}
-          error={parseInt(stream.sourceAddrHigh) !== null ? false : true}
-          helperText={parseInt(stream.sourceAddrHigh) !== null ? '' : 'Format must be in hex'}
+          error={Number(stream.sourceAddrHigh) !== null ? false : true}
+          helperText={Number(stream.sourceAddrHigh) !== null ? '' : 'Format must be in hex'}
         />
       </Grid>
       <Grid xs={6}>
@@ -84,8 +84,8 @@ function MostStream({ setSettings, setOpenStream }: SettingsProps) {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             updateStream('sourceAddrLow', event.target.value)
           }}
-          error={parseInt(stream.sourceAddrLow) !== null ? false : true}
-          helperText={parseInt(stream.sourceAddrLow) !== null ? '' : 'Format must be in hex'}
+          error={Number(stream.sourceAddrLow) !== null ? false : true}
+          helperText={Number(stream.sourceAddrLow) !== null ? '' : 'Format must be in hex'}
         />
       </Grid>
       <Grid xs={12}>

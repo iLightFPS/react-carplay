@@ -1,3 +1,4 @@
+import { captureConsole } from '../../../../shared/debugLog'
 import CarplayWeb, {
   CarplayMessage,
   DongleConfig,
@@ -11,16 +12,24 @@ import { RenderEvent } from './render/RenderEvents'
 import { RingBuffer } from 'ringbuf.js'
 import { createAudioPlayerKey } from './utils'
 
+let debugRecording = false
+captureConsole('carplay', entry => postMessage({ type: 'debugLog', entry }), () => debugRecording)
+
 let carplayWeb: CarplayWeb | null = null
 let videoPort: MessagePort | null = null
 let microphonePort: MessagePort | null = null
 let config: Partial<DongleConfig> | null = null
+let videoStarted = false
 const audioBuffers: Record<AudioPlayerKey, RingBuffer<Int16Array>> = {}
 const pendingAudio: Record<AudioPlayerKey, Int16Array[]> = {}
 
 const handleMessage = (message: CarplayMessage) => {
   const { type, message: payload } = message
   if (type === 'video' && videoPort) {
+    if (!videoStarted) {
+      videoStarted = true
+      postMessage({ type: 'videoStarted' })
+    }
     videoPort.postMessage(new RenderEvent(payload.data), [payload.data.buffer])
   } else if (type === 'audio' && payload.data) {
     const { decodeType, audioType } = payload
@@ -43,22 +52,41 @@ const handleMessage = (message: CarplayMessage) => {
       postMessage(getPlayerMessage)
     }
   } else {
+    if (type === 'unplugged') videoStarted = false
     postMessage(message)
   }
 }
 
-onmessage = async (event: MessageEvent<Command>) => {
+// Serialize session changes so stop/start cannot claim the USB interface concurrently.
+let commands = Promise.resolve()
+onmessage = (event: MessageEvent<Command>) => {
+  if (event.data.type === 'debugRecording') {
+    debugRecording = event.data.enabled
+    return
+  }
+  commands = commands.then(() => handleCommand(event)).catch(error => {
+    console.error('CarPlay worker command failed', error)
+    postMessage({ type: 'failure' })
+  })
+}
+
+function setMicrophonePort(port: MessagePort) {
+  microphonePort?.close?.()
+  microphonePort = port
+  microphonePort.onmessage = event => {
+    if (carplayWeb) void carplayWeb.dongleDriver.send(new SendAudio(event.data))
+  }
+}
+
+const handleCommand = async (event: MessageEvent<Command>) => {
   switch (event.data.type) {
     case 'initialise':
       if (carplayWeb) return
       videoPort = event.data.payload.videoPort
-      microphonePort = event.data.payload.microphonePort
-      microphonePort.onmessage = ev => {
-        if (carplayWeb) {
-          const data = new SendAudio(ev.data)
-          carplayWeb.dongleDriver.send(data)
-        }
-      }
+      if (event.data.payload.microphonePort) setMicrophonePort(event.data.payload.microphonePort)
+      break
+    case 'microphonePort':
+      setMicrophonePort(event.data.payload)
       break
     case 'audioPlayer':
       const { sab, decodeType, audioType } = event.data.payload
@@ -71,14 +99,32 @@ onmessage = async (event: MessageEvent<Command>) => {
         pendingAudio[audioKey] = []
       }
       break
+    case 'reconnect':
     case 'start':
-      if (carplayWeb) return
+      if (carplayWeb && event.data.type === 'start') return
+      videoStarted = false
+      if (carplayWeb) {
+        const previousSession = carplayWeb
+        previousSession.onmessage = null
+        carplayWeb = null
+        await previousSession.stop()
+      }
+      Object.keys(pendingAudio).forEach(key => { delete pendingAudio[key as AudioPlayerKey] })
       config = event.data.payload.config
       const device = await findDevice()
       if (device) {
         carplayWeb = new CarplayWeb(config)
         carplayWeb.onmessage = handleMessage
-        carplayWeb.start(device)
+        try {
+          await carplayWeb.start(device)
+        } catch (error) {
+          carplayWeb.onmessage = null
+          await carplayWeb.stop()
+          carplayWeb = null
+          throw error
+        }
+      } else {
+        postMessage({ type: 'failure' })
       }
       break
     case 'touch':
@@ -90,8 +136,10 @@ onmessage = async (event: MessageEvent<Command>) => {
       }
       break
     case 'stop':
-      await carplayWeb?.stop()
+      videoStarted = false
+      const stopped = carplayWeb
       carplayWeb = null
+      if (stopped) { stopped.onmessage = null; await stopped.stop() }
       break
     case 'frame':
       if (carplayWeb) {
