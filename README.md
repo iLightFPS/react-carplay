@@ -1,61 +1,83 @@
-# React CarPlay fork
+# React CarPlay
 
-Based on [Rhys Morgan's React CarPlay](https://github.com/rhysmorgan134/react-carplay) and [node-CarPlay](https://github.com/rhysmorgan134/node-CarPlay).
+A CarPlay app for Raspberry Pi with a Carlinkit CPC200-CCPA adapter. Based on [Rhys Morgan's React CarPlay](https://github.com/rhysmorgan134/react-carplay), with a new interface, reconnect controls, and separate reverse and front camera support.
 
-This fork adds a clock/connection screen, a reconnect action, grouped settings, and an opt-in debug console. Reverse and front cameras have independent device selections and CAN triggers. Reverse takes priority if both triggers are active.
+## CarPlay
 
-## Develop and verify
+![CarPlay tab showing the clock and connection button](docs/screenshots/carplay.jpg)
 
-Use Node.js 22 or 24 and Git. From your own fork's checkout:
+The clock stays on screen until video arrives from the phone. If the phone disconnects, the reconnect button comes back. A connection attempt that gets stuck can be retried after 30 seconds.
 
-```sh
-npm ci
-npm test
-npm run build
-npm run dev
-```
+## Settings
 
-UI changes update in development. Changes to Electron's main process require restarting the app. Do not copy `node_modules` between Windows and the Pi; install dependencies on each target.
+![Settings tab with display controls](docs/screenshots/settings.jpg)
 
-`npm run build` runs both TypeScript checks before bundling. GitHub CI performs a clean installation, tests, and this full build on Windows and Linux. Packaging commands are listed in `package.json`; build Pi binaries on the matching Linux/ARM environment.
+Settings are split into Display, Audio, Connection, and Advanced. Change the resolution, frame rate, microphone, Wi-Fi band, cameras, key bindings, and CAN triggers here.
 
-## Raspberry Pi / Linux
-
-The adapter uses USB; CAN integration separately requires a working SocketCAN `can0` interface on the vehicle's correct bus and bitrate. The app does not configure or transmit vehicle CAN frames. Enable CAN under Advanced, then configure the trigger's CAN ID, mask, and zero-based payload byte. A mask of zero leaves that trigger unused. The app releases camera triggers after 1.5 seconds without fresh matching frames.
-
-Select the reverse and front camera devices under Connection. Earlier `lights` mappings migrate to the front-camera trigger. Saving settings updates the app without relaunching it; adapter setting changes restart the CarPlay session. PiMost remains unavailable in this build.
-
-After building your fork's AppImage, use:
-
-```sh
-bash setup-pi.sh /absolute/path/to/your-fork.AppImage
-```
-
-The script installs the supplied file and creates per-user autostart and USB permissions. It does not download the upstream release. Install your distribution's AppImage/FUSE dependencies if required. Reconnect the adapter after applying USB permissions; a new group membership may require signing out and back in.
-
-## Windows
-
-Windows supports UI development without SocketCAN. Actual Carlinkit USB access requires a compatible driver and a device that Windows can start. WinUSB installation alone does not resolve Device Manager Code 10/43. This setup's CPC200-CCPA connection remains unverified on Windows.
+Saving adapter settings restarts the CarPlay connection without closing the app. Reverse and front cameras have separate device selections. Reverse takes priority when both triggers are active.
 
 ## Debug console
 
-Recording is off by default and resets to off when the renderer restarts. Start recording before reproducing a problem, then stop and export the filtered entries as JSONL. Recording continues across tabs until stopped; Pause view freezes only the display. At most 1,500 entries are retained, updates are batched, and binary payloads are summarised rather than copied in full.
+![Debug console recording app and main-process messages](docs/screenshots/debug.jpg)
 
-Sources include app, main process, CarPlay worker, connection, media, and video errors. Future decoded navigation events can use:
+Recording is **off by default**. Start it before reproducing a problem, stop it afterward, then export the logs as JSONL. Search and filter by level or source to find what you need.
 
-```ts
-import { logDebug } from './store/debugStore' // adjust relative path as needed
-logDebug('info', 'navigation', 'Route update', decodedNavigation)
+The console keeps the latest 1,500 entries. Pause view stops the display from moving; it does not stop recording. Audio and video buffers are summarised instead of dumped into the log.
+
+There is a place for navigation logs, but navigation packet decoding has not been added yet.
+
+## Run it
+
+You need Git and Node.js 22 or 24.
+
+```sh
+git clone https://github.com/iLightFPS/react-carplay.git
+cd react-carplay
+npm ci
+npm run dev
 ```
 
-Navigation packet decoding is not implemented by this UI change. Log exports contain captured settings/messages and are saved locally when requested.
+To run the checks and build:
 
-## Vendored audio dependency
+```sh
+npm test
+npm run build
+```
 
-`vendor/pcm-ringbuf-player-0.0.5-local.2.tgz` is required by the lockfile and must be committed. Its corresponding source and original MIT license are in `vendor/pcm-ringbuf-player`. It is based on upstream commit `0dd11df4cfb207979fea9111259f87b1118347d7`, with an explicit ring-buffer type and a public `getRawBuffer()` accessor. Rebuild using the source package's build script and `npm pack`; do not silently change the tarball referenced by a published lockfile.
+Install dependencies on each machine. Do not copy `node_modules` from Windows to the Pi.
 
-## Validation status
+## Raspberry Pi and cameras
 
-Local Windows typechecks, bundle builds and mocked CAN/reconnect/debug regression tests are automated. These do not establish hardware confirmation. Before declaring a working Pi release, verify USB/phone pairing, leaving and returning with the phone, audio/microphone, each camera trigger, simultaneous-trigger priority, and trigger release after CAN/USB loss on the actual Pi/car.
+Connect the Carlinkit adapter over USB. For CAN camera triggers, you also need a working SocketCAN interface named `can0`, set up for your car's bus and bitrate. The app listens to CAN; it does not send vehicle CAN messages.
 
-Generated bundles, dependencies, local backups, and log exports are excluded by `.gitignore`. No GitHub remote for a personal fork is configured automatically, and nothing is published by the local setup.
+Choose your camera devices under **Settings → Connection**, then set the CAN ID, mask, and byte under **Advanced → Configure CAN signals**. Byte numbering starts at **0**. A mask of **0** leaves that trigger unused. Old `lights` mappings are kept as front-camera mappings.
+
+Camera triggers clear after 1.5 seconds without fresh matching CAN frames. PiMost is currently disabled.
+
+Once you have built an AppImage for your Pi:
+
+```sh
+bash setup-pi.sh /absolute/path/to/your.AppImage
+```
+
+This installs your AppImage, USB permissions, and autostart. It does not download the original project's release. You may need your distribution's FUSE package and a sign-out/sign-in after USB group permissions change.
+
+## Windows
+
+Windows can be used to work on the UI. CAN is loaded only on Linux.
+
+The CPC200-CCPA has not been confirmed working on Windows with this fork. Installing WinUSB does not fix an adapter that still reports Code 10 or 43 in Device Manager.
+
+## Testing
+
+The app has passed a clean Windows install, TypeScript checks, the production build, and regression tests for reconnects, CAN signals, settings, and logging.
+
+The latest changes still need testing on the Pi with a phone and cameras connected. That includes leaving and returning with the phone, microphone/audio, both camera triggers, and loss of CAN traffic. Existing dependency security advisories also need a separate update pass.
+
+[Development notes](docs/development.md) cover logging hooks and the patched audio dependency.
+
+## Credits
+
+- [rhysmorgan134/react-carplay](https://github.com/rhysmorgan134/react-carplay)
+- [rhysmorgan134/node-CarPlay](https://github.com/rhysmorgan134/node-CarPlay)
+- The patched `pcm-ringbuf-player` source and its original MIT license are included under `vendor/pcm-ringbuf-player`.
